@@ -4,35 +4,9 @@
 
 	RewriteEngine on
 	
-	# Verbeter de rewrite rule hieronder, en maak ook de andere regels
-	
-	# /games => id=0, category=all, type=json
-	
-	RewriteRule ^games$ gameservice.php?id=0&category=all&type=json
-	
-	# /games/00001 => id=00001, category=single, type=json
 
-    RewriteRule ^games/([0-9]{5})$ gameservice.php?id=$1&category=single&type=json
+    RewriteRule ^artists/(.*)$  artists.php?info=$1  [QSA]
 
-	# /games/00001.json en /games/00001.xml , doen hetzelfde maar dan met type=json en type=xml
-
-
-    RewriteRule ^games/([0-9]{5}).([a-z]{3,4})$ gameservice.php?id=$1&category=single&type=$2
-
-
-    # voor de checkmethods
-
-    #RewriteRule ^artists/(.*)$  checkMethods.php?name=artists&info=$1
-
-    #RewriteRule ^artists(.*)$   test.php?info=$1
-    #RewriteRule ^artists/(.*)$  artists.php?info=$1 [QSA,L]
-    RewriteRule ^artists/(.*)$  artists.php?info=$1 [QSA,L]
-
-    RewriteRule ^artist/(.*)$  checkMethods.php?name=artist&info=$1
-
-    RewriteRule ^tracks/(.*)$   checkMethods.php?name=tracks&info=$1
-
-    RewriteRule ^albums/(.*)$   checkMethods.php?name=albums&info=$1
 
 
 </IfModule>

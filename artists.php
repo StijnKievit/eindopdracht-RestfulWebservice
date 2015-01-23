@@ -12,6 +12,7 @@ start();
 function start()
 {
 
+
     $supportedTypes = array('application/json', 'application/xml');
     $HTTPHeaders = getallheaders();
     $allowed = false;
@@ -26,12 +27,14 @@ function start()
 
             $allowed = true;
             array_push($Type, $supportedTypes[0]);
+            $content_type = $supportedTypes[0];
             //echo 'its allowed to use '.$supportedTypes[0];
         }
         elseif((($pos = strpos($acceptHeader, $supportedTypes[1])) !==false)){
 
             $allowed = true;
             array_push($Type, $supportedTypes[1]);
+            $content_type = $supportedTypes[1];
             //echo 'its allowed to use '.$supportedTypes[1];
 
 
@@ -43,7 +46,7 @@ function start()
 
         }
 
-        if ($allowed){
+       /* if ($allowed){
 
             if (isset($HTTPHeaders['Content-Type'])) {
 
@@ -52,6 +55,7 @@ function start()
                     http_response_code(200);
                     $content_type = $HTTPHeaders['Content-Type'];
                     header('Content-Type:'.$content_type);
+                    echo $content_type;
                 }
                 else {
 
@@ -81,7 +85,7 @@ function start()
 
             }
 
-        }
+        }*/
 
        // echo $content_type;
 
@@ -93,13 +97,13 @@ function start()
             $limit = $_GET['limit'];
         } elseif (isset($_GET['start']) && !isset($_GET['limit'])) {
             $start = $_GET['start'];
-            $limit = 6;
+            $limit = null;
         } elseif (!isset($_GET['start']) && isset($_GET['limit'])) {
             $start = 1;
             $limit = $_GET['limit'];
         } else {
             $start = 1;
-            $limit = 6;
+            $limit = null;
         }
 
 
@@ -153,7 +157,7 @@ function start()
 
             } elseif (is_numeric($UriInput[0])) {
 
-                header('Allow: GET, POST, DELETE, OPTIONS');
+                header('Allow: GET, PUT, DELETE, OPTIONS');
             } else {
 
                 header('Allow: GET');
@@ -195,13 +199,17 @@ function start()
             if(isset($_POST['name']) && isset($_POST['url']) && isset($_POST['main_genre'])){
 
 
+                if( $_POST['name'] != "" &&  $_POST['url'] != "" && $_POST['main_genre'] != '' ) {
+                    $name = $_POST['name'];
+                    $url = $_POST['url'];
+                    $main_genre = $_POST['main_genre'];
 
-                echo $name = $_POST['name'];
-                echo $url = $_POST['url'];
-                echo $main_genre = $_POST['main_genre'];
+                    addData($name, $url, $main_genre);
+                }
+                else{
 
-                addData($name, $url, $main_genre);
-
+                    http_response_code(400);
+                }
 
 
             }
@@ -227,8 +235,13 @@ function start()
                             $url = $newObject->url;
                             $main_genre = $newObject->main_genre;
 
-                            addData($name, $url, $main_genre);
+                            if($name != "" && $url != "" && $main_genre != "") {
 
+                                addData($name, $url, $main_genre);
+                            }
+                            else{
+                                http_response_code(400);
+                            }
 
 
                         }
@@ -255,8 +268,7 @@ function start()
 
     }
 
-    if ($_SERVER['REQUEST_METHOD'] == "DELETE"){
-
+    if ($_SERVER['REQUEST_METHOD'] == "PUT"){
 
 
         if (!empty($_GET["info"])) {
@@ -269,6 +281,113 @@ function start()
 
                 http_response_code(405);
 
+            }
+            elseif (is_numeric($UriInput[0])) {
+
+                //echo 'its an id!';
+                if($HTTPHeaders['Content-Type'] == "application/json"){
+
+                        $input = @file_get_contents('php://input');
+                        $array = json_decode($input, true);
+
+
+                        if (isset($array)) {
+
+                            if (isJson($input)) {
+
+
+                               if( empty($array['id']) || empty($array['name']) || empty($array['url']) || empty($array['main_genre'])){
+
+                                   http_response_code(400);
+                                   header('Content-Type : application/json');
+                                   echo json_encode( array( "message" => "error - no empty values allowed" ));
+                                }
+                                else{
+
+                                    for ($i = 0; $i < count($array['links']); $i++) {
+
+                                        if (empty($array['links'][$i]['rel']) || empty($array['links'][$i]['href'])){
+
+
+                                            http_response_code(400);
+                                            $json = json_encode(array("message" => "error - no empty values allowed"));
+                                            header("Content-Type: application/json");
+                                            print $json;
+                                            exit();
+                                        }
+                                    }
+                                    editData($array['name'], $array['url'], $array['main_genre'], $UriInput[0]);
+
+
+                                }
+
+
+
+                            }
+                            else {
+                                http_response_code(400);
+                                $json = json_encode(array("message" => "Incorrect format or empty values"));
+                                header("Content-Type: application/json");
+                                print $json;
+                                exit();
+                            }
+
+                        }
+                        else{
+                            http_response_code(400);
+                            $json = json_encode(array("message" => "Incorrect format or empty values"));
+                            header("Content-Type: application/json");
+                            print $json;
+                            exit();
+                        }
+                   }
+                else{
+                    http_response_code(400);
+                    $json = json_encode(array("message" => "Incorrect format"));
+                    header("Content-Type: application/json");
+                    print $json;
+                    exit();
+
+                }
+
+
+            }
+            else {
+
+                http_response_code(405);
+                $json = json_encode(array("message" => "method not allowed"));
+                header("Content-Type: application/json");
+                print $json;
+                exit();
+
+            }
+
+        }
+        else {
+
+            http_response_code(405);
+            $json = json_encode(array("message" => "method not allowed"));
+            header("Content-Type: application/json");
+            print $json;
+            exit();
+
+        }
+    }
+
+    if ($_SERVER['REQUEST_METHOD'] == "DELETE") {
+
+
+        if (!empty($_GET["info"])) {
+
+            $info = $_GET['info'];
+            $UriInput = explode('/', $info);
+
+
+            if ($UriInput[0] == 'popular') {
+
+                print json_encode(["message" => "Can't delete collection."]);
+                http_response_code(405);
+
             } elseif (is_numeric($UriInput[0])) {
 
                 deleteItem($UriInput[0]);
@@ -276,23 +395,33 @@ function start()
             } else {
 
                 http_response_code(400);
+                print json_encode(["message" => "Does not exist."]);
+
 
 
             }
         }
+        else {
 
-        else{
-
+            print json_encode(["message" => "Can't delete collection."]);
             http_response_code(405);
 
-            }
         }
+    }
 
-    if ($_SERVER['REQUEST_METHOD'] != 'GET' && $_SERVER['REQUEST_METHOD'] != 'POST' && $_SERVER['REQUEST_METHOD'] != 'OPTIONS' && $_SERVER['REQUEST_METHOD'] != 'DELETE'){
+    if ($_SERVER['REQUEST_METHOD'] != 'GET' && $_SERVER['REQUEST_METHOD'] != 'POST' && $_SERVER['REQUEST_METHOD'] != 'OPTIONS' && $_SERVER['REQUEST_METHOD'] != 'DELETE' && $_SERVER['REQUEST_METHOD'] != 'PUT'){
+
+        print json_encode(["message" => "Method not allowed."]);
+        http_response_code(405);
         http_response_code(405);
         exit;
     }
+
 }
+
+//=====================================================================================================================================================================================//
+//============================================================================DATA ====================================================================================================//
+//=====================================================================================================================================================================================//
 function getData($popular, $id, $start, $limit, $content_type){
 
 
@@ -314,6 +443,7 @@ function getData($popular, $id, $start, $limit, $content_type){
     $password ="";
     $database = "webservice";
 
+    include ('dbConnect.php');
 // Create connection
     $conn = new mysqli($servername,$username, $password, $database);
 
@@ -356,13 +486,14 @@ function getData($popular, $id, $start, $limit, $content_type){
                 $artist = array(
                     'id' => $row['id'],
                     'name' => $row['name'],
-
+                    'main_genre' => $row['main_genre'],
+                    'url' => $row['url'],
 
                     'links' => [
                         ['rel' => 'self',
-                            'href' => "http://localhost/user/restfulwebservices/htacces_test/artists/" . str_pad($row['id'], 6, '0', STR_PAD_LEFT) . ""],
+                            'href' => "http://stud.cmi.hr.nl/0875013/jaar2/RestfulWebservices/eindopdracht/artists/" . str_pad($row['id'], 6, '0', STR_PAD_LEFT) . ""],
                         ['rel' => 'collection',
-                            'href' => 'http://localhost/user/restfulwebservices/htacces_test/artists/']
+                            'href' => 'http://stud.cmi.hr.nl/0875013/jaar2/RestfulWebservices/eindopdracht/artists/']
                     ]
                 );
             }
@@ -377,16 +508,16 @@ function getData($popular, $id, $start, $limit, $content_type){
                     'name' => $row['name'],
                     'main_genre' => $row['main_genre'],
                     'url' => $row['url'],
-                    'rating' => array(
+                    /*'rating' => array(
                             'total_stars' => $row['total_stars'],
                             'total_votes' => $row['total_votes'],
                             'stars' => $stars
-                    ),
+                    ),*/
                     'links' => [
                         ['rel' => 'self',
-                            'href' => "http://localhost/user/restfulwebservices/htacces_test/artists/" . str_pad($row['id'], 6, '0', STR_PAD_LEFT) . ""],
+                            'href' => "http://stud.cmi.hr.nl/0875013/jaar2/RestfulWebservices/eindopdracht/artists/" . str_pad($row['id'], 6, '0', STR_PAD_LEFT) . ""],
                         ['rel' => 'collection',
-                            'href' => 'http://localhost/user/restfulwebservices/htacces_test/artists/']
+                            'href' => 'http://stud.cmi.hr.nl/0875013/jaar2/RestfulWebservices/eindopdracht/artists/']
                     ]
 
                 );
@@ -413,7 +544,7 @@ function getData($popular, $id, $start, $limit, $content_type){
         if ($content_type == "application/json"){
 
             header('Content-Type:'.$content_type);
-            echo json_encode($artist, JSON_FORCE_OBJECT);
+            echo json_encode($artist);
 
         }
         elseif($content_type == "application/xml") {
@@ -435,171 +566,6 @@ function getData($popular, $id, $start, $limit, $content_type){
 
 }
 
-function addPagination($array, $start, $limit, $content_type, $popular){
-
-
-    $contentType = $content_type;
-
-
-    $currentPage = $start;
-
-    $totalItems = count($array);
-
-
-    $totalPages = ceil(($totalItems/$limit));
-   // echo "total items ".$totalItems;
-    //echo "total pages ".$totalPages;
-    //echo "items per page ".$totalItems/$totalPages;
-
-    $itemsPerPage = round(($totalItems/$totalPages),0, PHP_ROUND_HALF_UP);
-
-
-    $firstItemId = (($start -1)*$itemsPerPage);
-
-
-    $limitedarray = array_slice($array, $firstItemId, $limit, true);
-
-
-    $currentItems = count($limitedarray);
-
-
-
-
-    if($currentPage >= $totalPages){
-
-        $nextPage = $totalPages;
-    }
-    else{
-        $nextPage = $currentPage+1;
-    }
-
-
-
-
-    if($popular){
-
-        $artistList = array('items' => $limitedarray,
-            'links' => array(
-                array(
-                    'rel' => 'self',
-                    'href' => 'http://localhost/user/restfulwebservices/htacces_test/artists/popular'
-                ),
-                array(
-                    'rel' => 'popular',
-                    'href' => 'http://localhost/user/restfulwebservices/htacces_test/artists/popular'
-                ),
-                array(
-                'rel' => 'basic',
-                'href' => 'http://localhost/user/restfulwebservices/htacces_test/artists/'
-                )
-            ));
-
-        $pagination = array('pagination' => array(
-            'currentPage' => $currentPage,
-            'currentItem' => $currentItems,
-            'totalPages' => $totalPages,
-            'totalItems' => $totalItems,
-            'links' =>  array(
-                array(
-                    'rel'   => 'first',
-                    'page'  => 1,
-                    'href'  => 'http://localhost/user/restfulwebservices/htacces_test/artists/popular?limit='.$limit.'&start=1'
-                ),
-                array(
-                    'rel'   => 'last',
-                    'page'  => $totalPages,
-                    'href'  => 'http://localhost/user/restfulwebservices/htacces_test/artists/popular?limit='.$limit.'&start='.$totalPages.''
-                ),
-                array(
-                    'rel'   => 'previous',
-                    'page'  => (($currentPage > 1) ? ($currentPage-1)  :1),
-                    'href'  => 'http://localhost/user/restfulwebservices/htacces_test/artists/popular?limit='.$limit.'&start='.(($currentPage > 1) ? ($currentPage-1)  :1).''
-                ),
-                array(
-                    'rel'   => 'next',
-                    'page'  => $currentPage+1,
-                    'href'  => 'http://localhost/user/restfulwebservices/htacces_test/artists/popular?limit='.$limit.'&start='.$nextPage.''
-                )
-            )
-        ));
-    }
-    else{
-
-        $artistList = array('items' => $limitedarray,
-            'links' => array(
-                array(
-                    'rel' => 'self',
-                    'href' => 'http://localhost/user/restfulwebservices/htacces_test/artists/'
-                ),
-                array(
-                    'rel' => 'popular',
-                    'href' => 'http://localhost/user/restfulwebservices/htacces_test/artists/popular'
-                ),
-                array(
-                'rel' => 'basic',
-                'href' => 'http://localhost/user/restfulwebservices/htacces_test/artists/'
-                )
-            ));
-        $pagination = array('pagination' => array(
-            'currentPage' => $currentPage,
-            'currentItem' => $currentItems,
-            'totalPages' => $totalPages,
-            'totalItems' => $totalItems,
-            'links' =>  array(
-                array(
-                    'rel'   => 'first',
-                    'page'  => 1,
-                    'href'  => 'http://localhost/user/restfulwebservices/htacces_test/artists/?limit='.$limit.'&start=1'
-                ),
-                array(
-                    'rel'   => 'last',
-                    'page'  => $totalPages,
-                    'href'  => 'http://localhost/user/restfulwebservices/htacces_test/artists/?limit='.$limit.'&start='.$totalPages.''
-                ),
-                array(
-                    'rel'   => 'previous',
-                    'page'  => (($currentPage > 1) ? ($currentPage-1)  :1),
-                    'href'  => 'http://localhost/user/restfulwebservices/htacces_test/artists/?limit='.$limit.'&start='.(($currentPage > 1) ? ($currentPage-1)  :1).''
-                ),
-                array(
-                    'rel'   => 'next',
-                    'page'  => $currentPage+1,
-                    'href'  => 'http://localhost/user/restfulwebservices/htacces_test/artists/?limit='.$limit.'&start='.$nextPage.''
-                )
-            )
-        ));
-    }
-
-
-
-    $finalArray = array_merge($artistList, $pagination);
-
-
-    if ($contentType == "application/json"){
-
-        header('Content-Type:'.$content_type);
-        echo json_encode($finalArray, JSON_FORCE_OBJECT);
-
-
-    }
-    elseif($contentType == "application/xml")
-    {
-        header('Content-Type:'.$content_type);
-        convertToXML(true, $finalArray);
-
-
-
-    }
-    else{
-
-        http_response_code(400);
-        exit;
-    }
-
-
-}
-
-
 function addData($name, $url, $main_genre){
 
     $servername = "localhost";
@@ -611,6 +577,8 @@ function addData($name, $url, $main_genre){
     $database = "0875013";
     $username = "0875013";
     $password = "7c4e3ec2";*/
+
+    include ('dbConnect.php');
 
 // Create connection
     $conn = new mysqli($servername,$username, $password, $database);
@@ -646,19 +614,19 @@ function addData($name, $url, $main_genre){
                     'name' => $row['name'],
                     'main_genre' => $row['main_genre'],
                     'url' => $row['url'],
-                    'rating' => array(
+                    /*'rating' => array(
                         'total_stars' => $row['total_stars'],
                         'total_votes' => $row['total_votes'],
                         'stars' => $stars
-                    ),
+                    ),*/
                     'links' => array(
                         array(
                             'rel' => 'self',
-                            'href' => "http://localhost/user/restfulwebservices/htacces_test/artists/" . str_pad($row['id'], 6, '0', STR_PAD_LEFT) . ""
+                            'href' => "http://stud.cmi.hr.nl/0875013/jaar2/RestfulWebservices/eindopdracht/artists/" . str_pad($row['id'], 6, '0', STR_PAD_LEFT) . ""
                         ),
                         array(
                             'rel' => 'collection',
-                            'href' => "http://localhost/user/restfulwebservices/htacces_test/artists/"
+                            'href' => "http://stud.cmi.hr.nl/0875013/jaar2/RestfulWebservices/eindopdracht/artists/"
                         )
 
                     )
@@ -688,6 +656,135 @@ function addData($name, $url, $main_genre){
 
 }
 
+function editData($name, $url, $main_genre, $id){
+
+
+    $id = (int)$id;
+    $servername = "localhost";
+    $username = "root";
+    $password ="";
+    $database = "webservice";
+
+    include ('dbConnect.php');
+
+    // Create connection
+    $conn = new mysqli($servername,$username, $password, $database);
+
+// Check connection
+    if ($conn->connect_error) {
+        die("Connection failed: " . $conn->connect_error);
+    }
+
+
+
+   $sql = "UPDATE artists
+            SET name='$name',url='$url', main_genre='$main_genre'
+            WHERE id='$id'";
+
+    $query = $conn->query($sql);
+
+
+    if($query){
+
+       http_response_code(200);
+
+        $sql = "SELECT * FROM artists WHERE id = '$id'";
+
+        $result = $conn->query($sql);
+
+        if ($result->num_rows > 0){
+            while($row = $result->fetch_assoc()) {
+
+                $stars =  ($row['total_votes'] > 0) ? round($row['total_stars']/$row['total_votes'], 1): 0;
+
+
+                header("Content-Type: application/json");
+                echo json_encode(array(
+                    'id' => $row['id'],
+                    'name' => $row['name'],
+                    'main_genre' => $row['main_genre'],
+                    'url' => $row['url'],
+                    /*'rating' => array(
+                        'total_stars' => $row['total_stars'],
+                        'total_votes' => $row['total_votes'],
+                        'stars' => $stars
+                    ),*/
+                    'links' => array(
+                        array(
+                            'rel' => 'self',
+                            'href' => "http://stud.cmi.hr.nl/0875013/jaar2/RestfulWebservices/eindopdracht/artists/" . str_pad($row['id'], 6, '0', STR_PAD_LEFT) . ""
+                        ),
+                        array(
+                            'rel' => 'collection',
+                            'href' => "http://stud.cmi.hr.nl/0875013/jaar2/RestfulWebservices/eindopdracht/artists/"
+                        )
+
+                    )
+
+                ));
+
+            }
+
+        }
+
+
+
+    }
+    else{
+
+        http_response_code(400);
+    }
+
+}
+
+function deleteItem($id){
+
+    $servername = "localhost";
+    $username = "root";
+    $password ="";
+    $database = "webservice";
+
+
+    include ('dbConnect.php');
+
+    /* $servername = "sql.cmi.hro.nl";
+     $database = "0875013";
+     $username = "0875013";
+     $password = "7c4e3ec2";*/
+
+// Create connection
+    $conn = new mysqli($servername,$username, $password, $database);
+
+// Check connection
+    if ($conn->connect_error) {
+        die("Connection failed: " . $conn->connect_error);
+    }
+
+    $sql = "DELETE FROM artists
+            WHERE id='$id'";
+
+
+    $query = $conn->query($sql);
+
+    if($query){
+        header('Content-Type: application/json');
+        print json_encode(["message" => "Resource deleted"]);
+        http_response_code(204);
+
+    }
+    else{
+
+        http_response_code(404);
+    }
+
+    $conn->close();
+
+}
+
+//=====================================================================================================================================================================================//
+//============================================================================DATA ====================================================================================================//
+//=====================================================================================================================================================================================//
+
 function convertToXML($collection, $array)
 {
 
@@ -699,21 +796,25 @@ function convertToXML($collection, $array)
 
         $xml = new DOMDocument('1.0', "UTF-8");
 
+        $artists = $xml->createElement("artists");
+        $artists = $xml->appendChild($artists);
+
+
         $items = $xml->createElement("items");
-        $items = $xml->appendChild($items);
+        $items = $artists->appendChild($items);
 
         $Pagelinks = $xml->createElement("links");
-        $Pagelinks = $xml->appendChild($Pagelinks);
+        $Pagelinks = $artists->appendChild($Pagelinks);
 
         $pagination = $xml->createElement("pagination");
-        $pagination = $xml->appendChild($pagination);
+        $pagination = $artists->appendChild($pagination);
 
 
         for ($i = 0; $i < $numberOfItems; $i++) {
 
 
 
-            $artist = $xml->createElement("artist");
+            $artist = $xml->createElement("item");
             $artist = $items->appendChild($artist);
 
             //add items to artists
@@ -723,6 +824,12 @@ function convertToXML($collection, $array)
 
             $name = $xml->createElement("name", $array['items'][$i]['name']);
             $artist->appendChild($name);
+
+            $main_genre = $xml->createElement("main_genre", $array['items'][$i]['main_genre']);
+            $artist->appendChild($main_genre);
+
+            $url = $xml->createElement("url", $array['items'][$i]['url']);
+            $artist->appendChild($url);
 
             $links = $xml->createElement("links");
             $artist->appendChild($links);
@@ -763,7 +870,7 @@ function convertToXML($collection, $array)
         $currentPage = $xml->createElement("currentPage", $array['pagination']['currentPage']);
         $pagination->appendChild($currentPage);
 
-        $currentItem = $xml->createElement("currentItem", $array['pagination']['currentItem']);
+        $currentItem = $xml->createElement("currentItem", $array['pagination']['currentItems']);
         $pagination->appendChild($currentItem);
 
         $totalPages = $xml->createElement("totalPages", $array['pagination']['totalPages']);
@@ -810,34 +917,34 @@ function convertToXML($collection, $array)
 
 
 
-        $artist = $xml->createElement("artist");
+        $artist = $xml->createElement("item");
         $artist = $xml->appendChild($artist);
 
         //add items to artists
 
         $id = $xml->createElement("id", $array['id']);
-        $id = $artist->appendChild($id);
+        $artist->appendChild($id);
 
         $name = $xml->createElement("name", $array['name']);
-        $name = $artist->appendChild($name);
+        $artist->appendChild($name);
 
         $main_genre = $xml->createElement("main_genre", $array['main_genre']);
-        $main_genre = $artist->appendChild($main_genre);
+        $artist->appendChild($main_genre);
 
         $url = $xml->createElement("url", $array['url']);
-        $url = $artist->appendChild($url);
+        $artist->appendChild($url);
 
-        $rating = $xml->createElement("rating");
+       /* $rating = $xml->createElement("rating");
         $rating = $artist->appendChild($rating);
 
         $total_stars = $xml->createElement("total_stars", $array['rating']['total_stars']);
-        $total_stars = $rating->appendChild($total_stars);
+        $rating->appendChild($total_stars);
 
         $total_votes = $xml->createElement("total_votes", $array['rating']['total_votes']);
-        $total_votes = $rating->appendChild($total_votes);
+        $rating->appendChild($total_votes);
 
         $stars = $xml->createElement("stars", $array['rating']['stars']);
-        $stars = $rating->appendChild($stars);
+        $rating->appendChild($stars);*/
 
         $links = $xml->createElement("links");
         $links = $artist->appendChild($links);
@@ -846,19 +953,19 @@ function convertToXML($collection, $array)
         $first = $links->appendChild($first);
 
         $rel = $xml->createElement("rel", $array['links'][0]['rel']);
-        $rel = $first->appendChild($rel);
+        $first->appendChild($rel);
 
         $href = $xml->createElement("href", $array['links'][0]['href']);
-        $href = $first->appendChild($href);
+        $first->appendChild($href);
 
         $second = $xml->createElement('link');
         $second = $links->appendChild($second);
 
         $rel = $xml->createElement("rel", $array['links'][1]['rel']);
-        $rel = $second->appendChild($rel);
+        $second->appendChild($rel);
 
         $href = $xml->createElement("href", $array['links'][1]['href']);
-        $href = $second->appendChild($href);
+        $second->appendChild($href);
 
 
 
@@ -870,44 +977,207 @@ function convertToXML($collection, $array)
 
 }
 
+function addPagination($array, $start, $limit, $content_type, $popular){
 
-function deleteItem($id){
 
-    $servername = "localhost";
-    $username = "root";
-    $password ="";
-    $database = "webservice";
+    if($limit == null){
 
-   /* $servername = "sql.cmi.hro.nl";
-    $database = "0875013";
-    $username = "0875013";
-    $password = "7c4e3ec2";*/
+        $currentPage = 1;
+        $limitedarray = $array;
+        $currentItems = count($limitedarray);
+        $totalPages = 1;
+        $totalItems = $currentItems;
+        $nextPage = 1;
 
-// Create connection
-    $conn = new mysqli($servername,$username, $password, $database);
+    }
+    else{
 
-// Check connection
-    if ($conn->connect_error) {
-        die("Connection failed: " . $conn->connect_error);
+
+        $currentPage = $start;
+        $totalItems = count($array);
+
+
+
+        // echo "total items ".$totalItems;
+        //echo "total pages ".$totalPages;
+        //echo "items per page ".$totalItems/$totalPages;
+
+        $totalPages = ceil(($totalItems/$limit));
+        $itemsPerPage = ceil(($totalItems/$totalPages));
+
+
+        if($start == 1){
+            $firstItemId = (($start -1)*$itemsPerPage);
+        }
+        else{
+            $firstItemId = (($start -1 )*$itemsPerPage + 1);
+        }
+
+
+
+        $cutRange = $limit;
+
+        if((count($array) - $firstItemId) < $limit){
+
+            $cutRange = (count($array) - $firstItemId);
+        }
+
+        //$totalPages = ceil(($totalItems/$limit));
+
+        $limitedarray = array_slice($array, $firstItemId, $cutRange, true);
+
+
+        $currentItems = count($limitedarray);
+
+
+
+
+        if($currentPage >= $totalPages){
+
+            $nextPage = $totalPages;
+        }
+        else{
+            $nextPage = $currentPage+1;
+        }
+
+        $currentPage = $start;
+
+
+
     }
 
-    $sql = "DELETE FROM artists
-            WHERE id='$id'";
+    $contentType = $content_type;
 
 
-    $query = $conn->query($sql);
 
-    if($query){
-        http_response_code(200);
+
+
+
+    if($popular){
+
+        $artistList = array('items' => $limitedarray,
+            'links' => array(
+                array(
+                    'rel' => 'self',
+                    'href' => 'http://stud.cmi.hr.nl/0875013/jaar2/RestfulWebservices/eindopdracht/artists/popular'
+                ),
+                array(
+                    'rel' => 'popular',
+                    'href' => 'http://stud.cmi.hr.nl/0875013/jaar2/RestfulWebservices/eindopdracht/artists/popular'
+                ),
+                array(
+                    'rel' => 'basic',
+                    'href' => 'http://stud.cmi.hr.nl/0875013/jaar2/RestfulWebservices/eindopdracht/artists/'
+                )
+            ));
+
+        $pagination = array('pagination' => array(
+            'currentPage' => $currentPage,
+            'currentItems' => $currentItems,
+            'totalPages' => $totalPages,
+            'totalItems' => $totalItems,
+            'links' =>  array(
+                array(
+                    'rel'   => 'first',
+                    'page'  => 1,
+                    'href'  => 'http://stud.cmi.hr.nl/0875013/jaar2/RestfulWebservices/eindopdracht/artists/popular?limit='.$limit.'&start=1'
+                ),
+                array(
+                    'rel'   => 'last',
+                    'page'  => $totalPages,
+                    'href'  => 'http://stud.cmi.hr.nl/0875013/jaar2/RestfulWebservices/eindopdracht/artists/popular?limit='.$limit.'&start='.$totalPages.''
+                ),
+                array(
+                    'rel'   => 'previous',
+                    'page'  => (($currentPage > 1) ? ($currentPage-1)  :1),
+                    'href'  => 'http://stud.cmi.hr.nl/0875013/jaar2/RestfulWebservices/eindopdracht/artists/popular?limit='.$limit.'&start='.(($currentPage > 1) ? ($currentPage-1)  :1).''
+                ),
+                array(
+                    'rel'   => 'next',
+                    'page'  => $currentPage+1,
+                    'href'  => 'http://stud.cmi.hr.nl/0875013/jaar2/RestfulWebservices/eindopdracht/artists/popular?limit='.$limit.'&start='.$nextPage.''
+                )
+            )
+        ));
+    }
+    else{
+
+        $artistList = array('items' => $limitedarray,
+            'links' => array(
+                array(
+                    'rel' => 'self',
+                    'href' => 'http://stud.cmi.hr.nl/0875013/jaar2/RestfulWebservices/eindopdracht/artists/'
+                ),
+                array(
+                    'rel' => 'popular',
+                    'href' => 'http://stud.cmi.hr.nl/0875013/jaar2/RestfulWebservices/eindopdracht/artists/popular'
+                ),
+                array(
+                    'rel' => 'basic',
+                    'href' => 'http://stud.cmi.hr.nl/0875013/jaar2/RestfulWebservices/eindopdracht/artists/'
+                )
+            ));
+        $pagination = array('pagination' => array(
+            'currentPage' => $currentPage,
+            'currentItems' => $currentItems,
+            'totalPages' => $totalPages,
+            'totalItems' => $totalItems,
+            'links' =>  array(
+                array(
+                    'rel'   => 'first',
+                    'page'  => 1,
+                    'href'  => 'http://stud.cmi.hr.nl/0875013/jaar2/RestfulWebservices/eindopdracht/artists/?limit='.$limit.'&start=1'
+                ),
+                array(
+                    'rel'   => 'last',
+                    'page'  => $totalPages,
+                    'href'  => 'http://stud.cmi.hr.nl/0875013/jaar2/RestfulWebservices/eindopdracht/artists/?limit='.$limit.'&start='.$totalPages.''
+                ),
+                array(
+                    'rel'   => 'previous',
+                    'page'  => (($currentPage > 1) ? ($currentPage-1)  :1),
+                    'href'  => 'http://stud.cmi.hr.nl/0875013/jaar2/RestfulWebservices/eindopdracht/artists/?limit='.$limit.'&start='.(($currentPage > 1) ? ($currentPage-1)  :1).''
+                ),
+                array(
+                    'rel'   => 'next',
+                    'page'  => $currentPage+1,
+                    'href'  => 'http://stud.cmi.hr.nl/0875013/jaar2/RestfulWebservices/eindopdracht/artists/?limit='.$limit.'&start='.$nextPage.''
+                )
+            )
+        ));
+    }
+
+
+
+    $finalArray = array_merge($artistList, $pagination);
+
+
+    if ($contentType == "application/json"){
+
+        header('Content-Type:'.$content_type);
+        echo json_encode($finalArray);
+
+
+    }
+    elseif($contentType == "application/xml")
+    {
+        header('Content-Type:'.$content_type);
+        convertToXML(true, $finalArray);
+
+
 
     }
     else{
 
         http_response_code(400);
+        exit;
     }
 
-    $conn->close();
 
 }
 
+function isJson($string) {
+    json_decode($string);
+    return (json_last_error() == JSON_ERROR_NONE);
+}
 ?>
